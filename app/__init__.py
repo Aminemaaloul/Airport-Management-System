@@ -5,9 +5,8 @@ from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from dotenv import load_dotenv
 import os
-import requests
-from .error_handler import handle_api_error
-
+from flasgger import Swagger
+from flask_smorest import Api  # Import Flask-Smorest
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,6 +23,12 @@ jwt = JWTManager()
 # Initialize Flask-Mail
 mail = Mail()
 
+# Initialize Flask-Smorest
+api = Api()  # Create an instance of the Api class
+
+# Initialize Flasgger
+swagger = Swagger()
+
 def create_app():
     """
     Flask application factory.
@@ -34,6 +39,14 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')  # Use the same secret key for JWT
+
+    # Configure Flask-Smorest
+    app.config['API_TITLE'] = 'Airport Management API'
+    app.config['API_VERSION'] = '1.0'
+    app.config['OPENAPI_VERSION'] = '3.0.3'
+    app.config['OPENAPI_URL_PREFIX'] = '/'
+    app.config['OPENAPI_SWAGGER_UI_PATH'] = '/swagger-ui'
+    app.config['OPENAPI_SWAGGER_UI_URL'] = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist/'
 
     # Configure Flask-Mail
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.example.com')
@@ -48,9 +61,11 @@ def create_app():
     migrate.init_app(app, db)  # Initialize Flask-Migrate with the app and db
     jwt.init_app(app)
     mail.init_app(app)
+    api.init_app(app)  # Initialize Flask-Smorest with the app
+    swagger.init_app(app)  # Initialize Flasgger with the app
 
     # Import models (ensure this is done after db initialization)
-    from .models import User, Flight, Baggage, AssistanceRequest, ParkingSpot, Notification
+    from .models import User, Flight, Baggage, AssistanceRequest, ParkingSpot, Notification, ParkingReservation, FlightSubscription
 
     # Register blueprints
     from .routes.auth import auth_bp
@@ -59,6 +74,7 @@ def create_app():
     from .routes.assistance import assistance_bp
     from .routes.parking import parking_bp
     from .routes.admin import admin_bp
+    from .routes.notifications import notification_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(flights_bp)
@@ -66,7 +82,6 @@ def create_app():
     app.register_blueprint(assistance_bp)
     app.register_blueprint(parking_bp)
     app.register_blueprint(admin_bp)
-    
-    app.register_error_handler(requests.exceptions.RequestException, handle_api_error)
+    app.register_blueprint(notification_bp)
 
     return app

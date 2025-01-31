@@ -1,24 +1,50 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import Baggage, db, User
+from app.models import Baggage, db, User, FlightSubscription, Flight  # Changed
 from decorators import admin_required
+from flasgger import swag_from
 
 baggage_bp = Blueprint('baggage', __name__)
 
-@baggage_bp.route('/baggage/track', methods=['GET'])
-@jwt_required()
-def track_baggage():
-    """
-    Track baggage status.
-    """
-    baggage_tag = request.args.get('baggage_tag')
-    baggage = Baggage.query.filter_by(baggage_tag=baggage_tag).first()
-    if not baggage:
-        return jsonify({"message": "Baggage not found"}), 404
-    return jsonify({"data":baggage.serialize()}), 200
-
 @baggage_bp.route('/users/me/baggage', methods=['GET'])
 @jwt_required()
+@swag_from({
+    'responses': {
+        200: {
+            'description': 'Retrieve baggage status for a specific user.',
+            'examples': {
+                'application/json': {
+                    'data': [
+                        {
+                            'id': 1,
+                            'user_id': 1,
+                            'status': 'loaded',
+                            'flight_id': 100,
+                            'created_at': '2025-01-30T20:00:00Z'
+                        }
+                    ]
+                }
+            }
+        },
+        404: {
+            'description': 'User not found',
+            'examples': {
+                'application/json': {
+                    'message': 'User not found'
+                }
+            }
+        }
+    },
+    'parameters': [
+        {
+            'name': 'Authorization',
+            'in': 'header',
+            'required': True,
+            'type': 'string',
+            'description': 'Authorization token'
+        }
+    ]
+})
 def get_user_baggage():
     """
     Retrieve baggage status for a specific user.
@@ -27,38 +53,6 @@ def get_user_baggage():
     user = User.query.get(user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
-
-    baggages = Baggage.query.filter(Baggage.flight.has(subscriptions=any(user_id=user_id))).all()
-    return jsonify({"data":[baggage.serialize() for baggage in baggages]}), 200
-
-
-@baggage_bp.route('/admin/baggage/<int:flight_id>', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_flight_baggage(flight_id):
-    """
-     Retrieve all baggage associated with a specific flight.
-    """
-    baggage = Baggage.query.filter_by(flight_id=flight_id).all()
-    return jsonify({"data": [bag.serialize() for bag in baggage]}), 200
-
-
-@baggage_bp.route('/admin/baggage/<int:baggage_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_baggage(baggage_id):
-    """
-     Update baggage details, such as status.
-    """
-    data = request.get_json()
-    status = data.get('status')
-    if not status:
-        return jsonify({"message": "Status is required"}), 400
-    
-    baggage = Baggage.query.get(baggage_id)
-    if not baggage:
-      return jsonify({"message": "Baggage not found"}), 404
-    
-    baggage.status = status
-    db.session.commit()
-    return jsonify({"message": "Baggage updated", "data": baggage.serialize()}), 200
+    # corrected code : Filter Baggage based on User ID
+    baggages = Baggage.query.filter_by(user_id=user_id).all()
+    return jsonify({"data": [baggage.serialize() for baggage in baggages]}), 200

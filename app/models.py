@@ -62,24 +62,30 @@ class Flight(db.Model):
         }
 
 # Baggage Model
+# In your models.py, inside the Baggage class add the user_id column
+
 class Baggage(db.Model):
     """
     Represents baggage associated with a flight.
     """
     id = db.Column(db.Integer, primary_key=True)
     flight_id = db.Column(db.Integer, db.ForeignKey('flight.id'), nullable=False)  # Associated flight
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Associated user
     baggage_tag = db.Column(db.String(50), unique=True, nullable=False)
     status = db.Column(db.String(50), nullable=False, default="checked-in")  # Status: checked-in, in transit, delivered, lost
     last_updated = db.Column(db.DateTime, nullable=False)
+
+    # relationship with user
+    user = db.relationship('User', backref=db.backref('baggage', lazy=True))
     def serialize(self):
         return {
             'id': self.id,
             'flight_id': self.flight_id,
+            'user_id': self.user_id,
             'baggage_tag': self.baggage_tag,
             'status': self.status,
             'last_updated': self.last_updated.isoformat()
         }
-
 # Assistance Request Model
 class AssistanceRequest(db.Model):
     """
